@@ -5,8 +5,8 @@ class UsuariosFilter(django_filters.FilterSet):
     class Meta:
         model = Usuarios
         fields = {
-            'nome': ['icontains'],
-            'email': ['exact'],
+            'nome': ['icontains'], #vai filtrar por nome ou parte do nome igual a string dada
+            'email': ['exact'], #tem que ser exatamente igual a string dada
             'telefone': ['exact'],
             'tipo_usuario': ['exact']
         }
