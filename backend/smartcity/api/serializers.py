@@ -20,14 +20,19 @@ class RegisterSerializer(serializers.ModelSerializer):
     telefone = serializers.CharField()
     tipo_usuario = serializers.ChoiceField(choices=Usuarios.TIPO_CHOICES)
 
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password', 'nome', 'telefone', 'tipo_usuario']
 
     def create(self, validated_data):
         #criando o usuario na tabela api_usuarios
 
-        nome = validated_data['nome', '']# o validated_data armazena os dados que foram passados na requisição (JSON, formulário) e passaram com sucesso por todas as regras de validação
-        email = validated_data['email',]
-        telefone = validated_data['telefone', '']
-        tipo_usuario = validated_data['tipo_usuario', '']
+        # CORRIGIDO: validated_data['nome', ''] usava tupla como chave (erro de sintaxe)
+        # o correto é .get('campo', valor_padrao) para acessar com valor padrão
+        nome = validated_data.get('nome', '')# o validated_data armazena os dados que foram passados na requisição (JSON, formulário) e passaram com sucesso por todas as regras de validação
+        email = validated_data.get('email', '')
+        telefone = validated_data.get('telefone', '')
+        tipo_usuario = validated_data.get('tipo_usuario', '')
 
 
         #Criando na tabela auth_user
@@ -39,6 +44,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         if tipo_usuario == 'user': #se o tipo do usuario for user ele nao tem acesso a parte admin
             user.is_staff = False
+            user.is_superuser = False
+            user.is_active = True
         
         elif tipo_usuario == 'admin':
             user.is_staff = True
@@ -48,8 +55,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         else: 
             raise serializers.ValidationError("Tipo de usuário inválido. Escolha 'admin' ou 'user'.")
         
-        user.is_active = True
-        user.is_superuser = False
+    
         user.save()#salva o tipo_usuario
 
         Usuarios.objects.create(

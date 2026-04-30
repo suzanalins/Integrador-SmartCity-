@@ -69,5 +69,3 @@ class HistoricoViewSet(viewsets.ModelViewSet):
     queryset = Historico.objects.all()
     serializer_class = HistoricoSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-

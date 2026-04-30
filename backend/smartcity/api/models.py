@@ -43,7 +43,7 @@ class Ambiente(models.Model):
    responsavel = models.ForeignKey (Responsaveis, on_delete=models.CASCADE, related_name='ambientes')
 
    def __str__(self):
-        return self.local
+        return self.local.local
 
 
 class Sensor(models.Model):
