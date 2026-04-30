@@ -15,20 +15,32 @@ class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
+
     #criando tabela api_usuarios
-    nome = serializers.CharField()
-    telefone = serializers.CharField()
-    tipo_usuario = serializers.ChoiceField(choices=Usuarios.TIPO_CHOICES)
+    nome = serializers.CharField(write_only=True)
+    telefone = serializers.CharField(write_only=True)
+    tipo_usuario = serializers.ChoiceField(choices=Usuarios.TIPO_CHOICES, write_only= True)
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'nome', 'telefone', 'tipo_usuario']
 
+
+    #validando se o username já existe, se existir ele não deixa criar o usuario
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username já existe.")
+        return value
+    
+
+    def validate_email(self, value):  
+            if User.objects.filter(email=value).exists():
+                raise serializers.ValidationError("Email já existe.")
+            return value
+
+
     def create(self, validated_data):
         #criando o usuario na tabela api_usuarios
-
-        # CORRIGIDO: validated_data['nome', ''] usava tupla como chave (erro de sintaxe)
-        # o correto é .get('campo', valor_padrao) para acessar com valor padrão
         nome = validated_data.get('nome', '')# o validated_data armazena os dados que foram passados na requisição (JSON, formulário) e passaram com sucesso por todas as regras de validação
         email = validated_data.get('email', '')
         telefone = validated_data.get('telefone', '')
@@ -42,6 +54,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
 
+        #ate aqui ok
+
         if tipo_usuario == 'user': #se o tipo do usuario for user ele nao tem acesso a parte admin
             user.is_staff = False
             user.is_superuser = False
@@ -53,10 +67,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             user.is_active = True
         
         else: 
+            user.delete() #se o tipo do usuario for diferente de user ou admin ele deleta o usuario criado na tabela auth_user e nao cria o usuario na tabela api_usuarios
             raise serializers.ValidationError("Tipo de usuário inválido. Escolha 'admin' ou 'user'.")
         
     
         user.save()#salva o tipo_usuario
+        
 
         Usuarios.objects.create(
             user = user,

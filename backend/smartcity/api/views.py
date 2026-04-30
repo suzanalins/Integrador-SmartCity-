@@ -26,7 +26,7 @@ class RegisterView(generics.CreateAPIView): #registrar novo usuário
 
 class UsuarioMeView(generics.RetrieveAPIView):
     serializer_class = UsuarioMeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]#precisa de autenticação para acessar
 
     def get_object(self):
         return self.request.user.perfil
