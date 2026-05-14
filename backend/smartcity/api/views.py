@@ -28,8 +28,13 @@ class UsuarioMeView(generics.RetrieveAPIView):
     serializer_class = UsuarioMeSerializer
     permission_classes = [permissions.IsAuthenticated]#precisa de autenticação para acessar
 
+    
     def get_object(self):
-        return self.request.user.perfil
+        try:
+            return self.request.user.perfil
+        except:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("Perfil de usuário não encontrado.")
 
 
 class LocaisViewSet(viewsets.ModelViewSet):
