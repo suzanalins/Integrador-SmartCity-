@@ -66,6 +66,7 @@ const Dashboard = () => {
                         <div className="icon">{getIcon(sensor.sensor)}</div>
                         <h3>{sensor.sensor}</h3>
                         <p>{sensor.unidade_medida}</p>
+                        <p>ID: {sensor.id}</p>
                         <span className={`status ${sensor.status === 'A' ? 'active' : 'inactive'}`}>
                             {sensor.status === 'A' ? 'Ativo' : 'Inativo'}
                         </span>
