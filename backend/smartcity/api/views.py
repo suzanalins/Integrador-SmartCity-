@@ -77,8 +77,14 @@ class HistoricoViewSet(viewsets.ModelViewSet):
 
 
 
+def converter_status(valor):
+    """Converte boolean ou string para formato da API (A/I)"""
+    if valor in [True, 'True', 'true', 1, '1', 'T', 't', 'Ativo', 'ativo', 'A', 'a']:
+        return 'A'
+    return 'I'
 
-#criando população dos locais com base no exel passado
+
+#criando popular sensores
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def popular_locais(request):
@@ -88,28 +94,21 @@ def popular_locais(request):
     
     try:
         df = pd.read_excel(arquivo)
-        colunas_esperadas = ["local"]
-        for coluna in colunas_esperadas:
-            if coluna not in df.columns:
-                return Response(
-                    {"detail":f"Coluna {coluna} obrigatória."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if 'local' not in df.columns:
+            return Response({"detail": "Coluna 'local' obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
         
-        return Response(
-            {"detail":"Importação concluida com sucesso..."},
-            status=status.HTTP_201_CREATED
-        )
-
+        inseridos = 0
+        for _, row in df.iterrows():
+            obj, created = Locais.objects.get_or_create(local=row["local"])
+            if created:
+                inseridos += 1
+        
+        return Response({"detail": f"Importação concluída! {inseridos} locais inseridos."}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response(
-            {"detail":f"Erro ao importar o arquivo {str(e)}"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
+        return Response({"detail": f"Erro: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-#criando população dos responsaveis com base no exel passado
+#criando popular responsaveis
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def popular_responsaveis(request):
@@ -119,82 +118,70 @@ def popular_responsaveis(request):
     
     try:
         df = pd.read_excel(arquivo)
-        colunas_esperadas = ["responsavel"]
-        for coluna in colunas_esperadas:
-            if coluna not in df.columns:
-                return Response(
-                    {"detail":f"Coluna {coluna} obrigatória."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if 'responsavel' not in df.columns:
+            return Response({"detail": "Coluna 'responsavel' obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
         
-        return Response(
-            {"detail":"Importação concluida com sucesso..."},
-            status=status.HTTP_201_CREATED
-        )
-
+        inseridos = 0
+        for _, row in df.iterrows():
+            obj, created = Responsaveis.objects.get_or_create(responsavel=row["responsavel"])
+            if created:
+                inseridos += 1
+        
+        return Response({"detail": f"Importação concluída! {inseridos} responsáveis inseridos."}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response(
-            {"detail":f"Erro ao importar o arquivo {str(e)}"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
+        return Response({"detail": f"Erro: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-#criando população dos ambientes com base no exel passado
+
+#criando popular ambientes
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])  
+@permission_classes([permissions.IsAuthenticated])
 def popular_ambientes(request):
     arquivo = request.FILES.get('file')
     if not arquivo:
         return Response({"error": "Nenhum arquivo foi enviado."}, status=status.HTTP_400_BAD_REQUEST)
     
-
     try:
         df = pd.read_excel(arquivo)
-        colunas_esperadas = ["local","ambiente", "responsavel"]
-        for coluna in colunas_esperadas: #se no exel nao existir uma das colunas esperadas ele diz que é obrigatoria
+        colunas_esperadas = ["local", "descricao", "responsavel"]
+        for coluna in colunas_esperadas:
             if coluna not in df.columns:
-                return Response(
-                    {"detail":f"Coluna {coluna} obrigatória."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-   
-            for _, row in df.iterrows():
-                local_id = int(row["local"])
-                responsavel_id = int(row["responsavel"])
-                ambiente_nome = row["ambiente"]
-
-            if not Locais.objects.filter(id=local_id).exists():
-                return Response(
-                    {"detail":f"Local ID: {local_id} não existe..."},
-                    status=status.HTTP_400_BAD_REQUEST
-                    )
+                return Response({"detail": f"Coluna '{coluna}' obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        inseridos = 0
+        erros = []
+        
+        for idx, row in df.iterrows():
+            local_id = int(row["local"])
+            responsavel_id = int(row["responsavel"])
+            descricao = row["descricao"]  
             
+            if not Locais.objects.filter(id=local_id).exists():
+                erros.append(f"Linha {idx+2}: Local ID {local_id} não existe")
+                continue
+                
             if not Responsaveis.objects.filter(id=responsavel_id).exists():
-                return Response(
-                    {"detail":f"Responsavel ID: {responsavel_id} não existe..."},
-                    status=status.HTTP_400_BAD_REQUEST
-                    )
+                erros.append(f"Linha {idx+2}: Responsável ID {responsavel_id} não existe")
+                continue
             
             Ambiente.objects.create(
-                local_id=row["local"],  
-                ambiente_nome= row["ambiente"],
-                responsavel_id=row["responsavel"]
+                local_id=local_id,
+                descricao=descricao,
+                responsavel_id=responsavel_id
             )
-
-            return Response(
-            {"detail":"Importação concluida com sucesso..."},
-            status=status.HTTP_201_CREATED
-        )
-
+            inseridos += 1
+        
+        mensagem = f"Importação concluída! {inseridos} ambientes inseridos."
+        if erros:
+            mensagem += f" Erros: {'; '.join(erros[:5])}"
+        
+        return Response({"detail": mensagem}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response(
-            {"detail":f"Erro ao importar o arquivo {str(e)}"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"detail": f"Erro: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-#criando população dos microcontroladores com base no exel passado  
+
+#criando popular microcontroladores
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])  
+@permission_classes([permissions.IsAuthenticated])
 def popular_microcontroladores(request):
     arquivo = request.FILES.get('file')
     if not arquivo:
@@ -205,86 +192,74 @@ def popular_microcontroladores(request):
         colunas_esperadas = ["modelo", "mac_address", "latitude", "longitude", "status", "ambiente"]
         for coluna in colunas_esperadas:
             if coluna not in df.columns:
-                return Response(
-                    {"detail":f"Coluna {coluna} obrigatória."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"detail": f"Coluna '{coluna}' obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
         
-            for _, row in df.iterrows():
-                ambiente_id = int(row["ambiente"])
-                if not Ambiente.objects.filter(id=ambiente_id).exists():
-                    return Response(
-                        {"detail":f"Ambiente ID: {ambiente_id} não existe..."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                Microcontroladores.objects.create(
-                    modelo=row["modelo"],
-                    mac_adress=row["mac_address"],
-                    latitude=row["latitude"],
-                    longitude=row["longitude"],
-                    status=row["status"],
-                    ambiente_id=row["ambiente"]
-                )
-
-        return Response(
-            {"detail":"Importação concluida com sucesso..."},
-            status=status.HTTP_201_CREATED
-        )
-
+        inseridos = 0
+        for _, row in df.iterrows():
+            ambiente_id = int(row["ambiente"])
+            if not Ambiente.objects.filter(id=ambiente_id).exists():
+                return Response({"detail": f"Ambiente ID {ambiente_id} não existe"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            
+            status_value = converter_status(row["status"])
+            
+            obj, created = Microcontroladores.objects.get_or_create(
+                mac_adress=row["mac_address"],
+                defaults={
+                    'modelo': row["modelo"],
+                    'latitude': row["latitude"],
+                    'longitude': row["longitude"],
+                    'status': status_value,
+                    'ambiente_id': ambiente_id
+                }
+            )
+            if created:
+                inseridos += 1
+        
+        return Response({"detail": f"Importação concluída! {inseridos} microcontroladores inseridos."}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response(
-            {"detail":f"Erro ao importar o arquivo {str(e)}"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
+        return Response({"detail": f"Erro: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-#criando população dos sensores com base no exel passado
+
+#criando popular sensores
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def popular_sensores(request):  
-    arquivo = request.FILES.get('file') 
+def popular_sensores(request):
+    arquivo = request.FILES.get('file')
     if not arquivo:
         return Response({"error": "Nenhum arquivo foi enviado."}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
         df = pd.read_excel(arquivo)
         colunas_esperadas = ["sensor", "unidade_med", "mic", "status"]
-
         for coluna in colunas_esperadas:
             if coluna not in df.columns:
-                return Response(
-                    {"detail":f"Coluna {coluna} obrigatória."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"detail": f"Coluna '{coluna}' obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
         
-            for _, row in df.iterrows():
-                mic_id = int(row["mic"])
-                if not Microcontroladores.objects.filter(id=mic_id).exists():
-                    return Response(
-                        {"detail":f"Microcontrolador ID: {mic_id} não existe..."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                Sensor.objects.create(
-                    sensor=row["sensor"],
-                    unidade_medida=row["unidade_med"],
-                    microcontrolador_id=row["mic"],
-                    status=row["status"]
-                )
-        return Response(
-            {"detail":"Importação concluida com sucesso..."},
-            status=status.HTTP_201_CREATED
-        )
-    
+        inseridos = 0
+        for _, row in df.iterrows():
+            mic_id = int(row["mic"])
+            if not Microcontroladores.objects.filter(id=mic_id).exists():
+                return Response({"detail": f"Microcontrolador ID {mic_id} não existe"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            
+            sensor_nome = row["sensor"].lower()
+            status_value = converter_status(row["status"])
+            
+            Sensor.objects.create(
+                sensor=sensor_nome,
+                unidade_medida=row["unidade_med"],
+                microcontrolador_id=mic_id,
+                status=status_value
+            )
+            inseridos += 1
+        
+        return Response({"detail": f"Importação concluída! {inseridos} sensores inseridos."}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response(
-            {"detail":f"Erro ao importar o arquivo {str(e)}"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
+        return Response({"detail": f"Erro: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-#criando população dos historicos com base no exel passado
+
+#criando popular historicos
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def popular_historicos(request):
@@ -297,31 +272,21 @@ def popular_historicos(request):
         colunas_esperadas = ["sensor", "valor", "timestamp"]
         for coluna in colunas_esperadas:
             if coluna not in df.columns:
-                return Response(
-                    {"detail":f"Coluna {coluna} obrigatória."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"detail": f"Coluna '{coluna}' obrigatória."}, status=status.HTTP_400_BAD_REQUEST)
         
-            for _, row in df.iterrows():
-                sensor_id = int(row["sensor"])
-                if not Sensor.objects.filter(id=sensor_id).exists():
-                    return Response(
-                        {"detail":f"Sensor ID: {sensor_id} não existe..."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                Historico.objects.create(
-                    sensor_id=row["sensor"],
-                    valor=row["valor"],
-                    data_hora=row["timestamp"]
-                )
-        return Response(
-            {"detail":"Importação concluida com sucesso..."},
-            status=status.HTTP_201_CREATED
-        )
-
+        inseridos = 0
+        for _, row in df.iterrows():
+            sensor_id = int(row["sensor"])
+            if not Sensor.objects.filter(id=sensor_id).exists():
+                return Response({"detail": f"Sensor ID {sensor_id} não existe"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            Historico.objects.create(
+                sensor_id=sensor_id,
+                valor=row["valor"],
+                time_stamp=row["timestamp"]  # ← CORRETO
+            )
+            inseridos += 1
+        
+        return Response({"detail": f"Importação concluída! {inseridos} históricos inseridos."}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response(
-            {"detail":f"Erro ao importar o arquivo {str(e)}"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"detail": f"Erro: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
