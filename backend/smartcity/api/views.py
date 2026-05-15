@@ -283,7 +283,7 @@ def popular_historicos(request):
             Historico.objects.create(
                 sensor_id=sensor_id,
                 valor=row["valor"],
-                time_stamp=row["timestamp"]  # ← CORRETO
+                time_stamp=row["timestamp"] 
             )
             inseridos += 1
         

@@ -31,7 +31,6 @@ const AmbienteList = () => {
 
     // Buscar nomes dos locais e responsáveis
     const getLocalNome = (localId) => {
-        // Isso seria ideal com um cache, mas por simplicidade
         return localId || 'N/A';
     };
 
