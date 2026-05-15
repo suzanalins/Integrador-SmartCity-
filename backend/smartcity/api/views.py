@@ -1,3 +1,4 @@
+from urllib import request
 from django.shortcuts import render
 from django.http import HttpResponse 
 from rest_framework import viewsets
@@ -89,6 +90,7 @@ def converter_status(valor):
 @permission_classes([permissions.IsAuthenticated])
 def popular_locais(request):
     arquivo = request.FILES.get('file')
+    print("Lindomar", request.FILES.get('file'))
     if not arquivo:
         return Response({"error": "Nenhum arquivo foi enviado."}, status=status.HTTP_400_BAD_REQUEST)
     
@@ -136,6 +138,9 @@ def popular_responsaveis(request):
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def popular_ambientes(request):
+    print(request.FILES)
+    print(request.content_type) 
+    print(request.FILES.keys())
     arquivo = request.FILES.get('file')
     if not arquivo:
         return Response({"error": "Nenhum arquivo foi enviado."}, status=status.HTTP_400_BAD_REQUEST)
@@ -187,8 +192,10 @@ def popular_microcontroladores(request):
     if not arquivo:
         return Response({"error": "Nenhum arquivo foi enviado."}, status=status.HTTP_400_BAD_REQUEST)
     
+    print(request.FILES)
     try:
         df = pd.read_excel(arquivo)
+        print(df.columns)
         colunas_esperadas = ["modelo", "mac_address", "latitude", "longitude", "status", "ambiente"]
         for coluna in colunas_esperadas:
             if coluna not in df.columns:
